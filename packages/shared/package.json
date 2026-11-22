@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./a2ui": {
+      "types": "./src/a2ui.ts",
+      "import": "./src/a2ui.ts"
+    },
     "./pullRequestAnchor": {
       "types": "./src/pullRequestAnchor.ts",
       "import": "./src/pullRequestAnchor.ts"

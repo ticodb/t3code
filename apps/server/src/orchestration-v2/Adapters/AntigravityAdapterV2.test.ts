@@ -13,6 +13,7 @@ import {
   ThreadId,
 } from "@t3tools/contracts";
 import { resolveSelfInvocation } from "@t3tools/shared/nodeRuntime";
+import { A2UI_RENDER_HEIGHT } from "@t3tools/shared/htmlRender";
 import { htmlRenderFromToolItem } from "@t3tools/shared/toolOutput";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as DateTime from "effect/DateTime";
@@ -614,6 +615,11 @@ describe("AntigravityAdapterV2 html_render pages", () => {
       const report = { html: `<table>${rows.join("")}</table>`, title: "Revenue", height: 240 };
       const failed = { ...report, html: "<p>Revenue</p>" };
       const errored = { ...report, html: "<p>Revenue error</p>" };
+      const surface = {
+        title: "Revenue",
+        messages: [{ version: "v0.9", createSurface: { surfaceId: "main", catalogId: "basic" } }],
+      };
+      const surfacePage = { ...page("surface"), kind: "a2ui" as const };
       const adapter = yield* makeAntigravityAdapterV2({
         instanceId,
         selfInvocation: yield* resolveSelfInvocation(),
@@ -665,10 +671,28 @@ describe("AntigravityAdapterV2 html_render pages", () => {
                       rawInput,
                     });
                   }
+                  yield* send({
+                    sessionUpdate: "tool_call",
+                    toolCallId: "surface",
+                    title: "Running a2ui_render",
+                    kind: "other",
+                    status: "in_progress",
+                    rawInput: surface,
+                  });
+                  yield* mcpSessions.recordHtmlRender(
+                    threadId,
+                    {
+                      html: JSON.stringify(surface.messages),
+                      title: surface.title,
+                      height: A2UI_RENDER_HEIGHT,
+                    },
+                    surfacePage,
+                  );
                   yield* mcpSessions.recordHtmlRender(threadId, report, page("report"));
                   yield* mcpSessions.recordHtmlRender(threadId, failed, page("failed"));
                   yield* mcpSessions.recordHtmlRender(threadId, errored, page("error"));
                   for (const [toolCallId, status] of [
+                    ["surface", "completed"],
                     ["unpublished", "completed"],
                     ["failed", "failed"],
                     ["published", "completed"],
@@ -825,6 +849,12 @@ describe("AntigravityAdapterV2 html_render pages", () => {
         toolName: "t3-code.html_render",
         page: page("replacement"),
         output: { htmlRender: page("replacement") },
+      });
+      assert.deepEqual(tool("surface"), {
+        status: "completed",
+        toolName: "t3-code.a2ui_render",
+        page: surfacePage,
+        output: { htmlRender: surfacePage },
       });
       assert.deepEqual(tool("unpublished"), {
         status: "completed",

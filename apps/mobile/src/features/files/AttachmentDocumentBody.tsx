@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import { EmptyState } from "../../components/ui/EmptyState";
 import type { useAttachmentDocument } from "../../lib/attachmentDocument";
-import { HtmlRenderWebView } from "../threads/HtmlRenderWebView";
+import { HtmlRenderWebView, type A2uiActionTarget } from "../threads/HtmlRenderWebView";
 import { AudioFilePreview } from "./AudioFilePreview";
 import { DelimitedFilePreview } from "./DelimitedFilePreview";
 import { FileMarkdownPreview } from "./FileMarkdownPreview";
@@ -33,7 +33,9 @@ export function AttachmentDocumentBody(props: {
   >;
   readonly name: string;
   readonly environmentId: EnvironmentId | null;
-  readonly htmlRender: boolean;
+  readonly htmlRender:
+    | false
+    | { readonly title: string; readonly a2ui?: A2uiActionTarget | undefined };
   readonly nativeViewer: "pending" | "open" | "unavailable" | null;
   readonly nativeError: string | null;
   readonly onOpenNative: () => void;
@@ -90,7 +92,13 @@ export function AttachmentDocumentBody(props: {
   }
   if (document.kind === "html") {
     return props.htmlRender ? (
-      <HtmlRenderWebView key={document.uri} uri={document.uri} title={props.name} nested={false} />
+      <HtmlRenderWebView
+        key={document.uri}
+        uri={document.uri}
+        title={props.htmlRender.title}
+        nested={false}
+        a2ui={props.htmlRender.a2ui}
+      />
     ) : (
       <WorkspaceFileWebPreview uri={document.uri} />
     );

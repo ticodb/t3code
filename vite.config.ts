@@ -180,6 +180,7 @@ export default defineConfig({
     ignorePatterns: [
       ".repos/**",
       "infra/task-cache/vendor/**",
+      "packages/a2ui/vendor/renderer.js",
       // Macroscope requires one glob per line; Markdown formatting corrupts it.
       ".macroscope/ignore.md",
       ".alchemy",
@@ -216,6 +217,7 @@ export default defineConfig({
       ".repos",
       ".repos/**",
       "infra/task-cache/vendor/**",
+      "packages/a2ui/vendor/renderer.js",
       "dist",
       "dist-electron",
       "node_modules",

@@ -137,8 +137,8 @@ export default mergeConfig(
       deps: {
         // alwaysBundle=false has no opinion; neverBundle must retain transitive native acceleration.
         alwaysBundle: shouldBundleCliDependency,
-        neverBundle: (id: string) =>
-          (packBootstrap && id === "./binMain.ts") || isExternalCliDependency(id),
+        neverBundle: (id: string, importer: string | undefined) =>
+          (packBootstrap && id === "./binMain.ts") || isExternalCliDependency(id, importer),
         onlyBundle: false,
       },
       banner: {

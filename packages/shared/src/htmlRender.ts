@@ -7,6 +7,10 @@ import {
 import { EVENT_CODE_SHORTCUT_KEYS } from "./keybindings.ts";
 
 export const HTML_RENDER_TOOL_NAME = "html_render";
+/** Publishes A2UI messages as an html render, so it shares that tool's display and recovery. */
+export const A2UI_RENDER_TOOL_NAME = "a2ui_render";
+/** The live page sets an A2UI frame's height; this only sizes it before the first load. */
+export const A2UI_RENDER_HEIGHT = 240;
 export const HTML_RENDER_MIN_HEIGHT = 80;
 export const HTML_RENDER_MAX_HEIGHT = 2000;
 // A client fits the frame to the live page up to this height. It only stops a
@@ -19,6 +23,8 @@ export interface HtmlRenderReference {
   readonly title: string;
   readonly height: number;
   readonly heights?: ReadonlyArray<readonly [width: number, height: number]>;
+  /** Set on pages T3 generated from A2UI messages, whose actions may message the thread. */
+  readonly kind?: "a2ui";
 }
 
 export const HTML_RENDER_MEASURE_WIDTHS = [320, 375, 430, 520, 640, 728, 860, 1000, 1144] as const;
@@ -49,7 +55,7 @@ function readMeasuredHeights(value: unknown) {
 
 export function readHtmlRenderReference(value: unknown): HtmlRenderReference | undefined {
   if (typeof value !== "object" || value === null) return undefined;
-  const { attachmentId, title, height, heights } = value as Record<string, unknown>;
+  const { attachmentId, title, height, heights, kind } = value as Record<string, unknown>;
   if (
     typeof attachmentId !== "string" ||
     attachmentId.length === 0 ||
@@ -66,6 +72,7 @@ export function readHtmlRenderReference(value: unknown): HtmlRenderReference | u
     title: title.trim().slice(0, HTML_RENDER_MAX_TITLE_LENGTH) || "HTML",
     height: clampHtmlRenderHeight(height),
     ...(measured === undefined ? {} : { heights: measured }),
+    ...(kind === "a2ui" ? { kind } : {}),
   };
 }
 
@@ -74,6 +81,7 @@ export function htmlRenderReferencesEqual(left: HtmlRenderReference, right: Html
     left.attachmentId === right.attachmentId &&
     left.title === right.title &&
     left.height === right.height &&
+    left.kind === right.kind &&
     (left.heights ?? []).length === (right.heights ?? []).length &&
     (left.heights ?? []).every(
       ([width, height], index) =>

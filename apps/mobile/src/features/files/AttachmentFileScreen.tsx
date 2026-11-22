@@ -30,7 +30,9 @@ export type AttachmentFileRouteParams = {
   readonly mimeType: string;
   readonly sizeBytes: string;
   readonly draftKey?: string;
-  readonly htmlRender?: "1";
+  readonly htmlRender?: "1" | "a2ui";
+  /** The html render's own title, which an A2UI page's actions name. */
+  readonly title?: string;
 };
 
 type AttachmentFileScreenProps = StaticScreenProps<AttachmentFileRouteParams>;
@@ -247,7 +249,16 @@ export function AttachmentFileScreen(props: AttachmentFileScreenProps) {
         document={document}
         name={params.name}
         environmentId={environmentId}
-        htmlRender={params.htmlRender === "1"}
+        htmlRender={
+          params.htmlRender === undefined
+            ? false
+            : params.htmlRender === "a2ui" && environmentId !== null && params.threadId
+              ? {
+                  a2ui: { environmentId, threadId: ThreadId.make(params.threadId) },
+                  title: params.title ?? params.name,
+                }
+              : { title: params.name }
+        }
         nativeViewer={nativeViewer}
         nativeError={nativeError}
         onOpenNative={() => {

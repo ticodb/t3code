@@ -50,6 +50,15 @@ describe("shouldBundleCliDependency", () => {
   it("treats prefix-matched siblings as external", () => {
     assert.strictEqual(shouldBundleCliDependency("node-gyp-build-optional-packages"), false);
   });
+
+  it("bundles zod 3 for packages that resolve it, keeping the server's zod external", () => {
+    const root = NodeURL.fileURLToPath(new URL("../../", import.meta.url));
+    const webCore = `${root}node_modules/.pnpm/@a2ui+web_core@0.15.0/node_modules/@a2ui/web_core/src/index.js`;
+    for (const id of ["zod", "zod/v3"]) {
+      assert.strictEqual(shouldBundleCliDependency(id, webCore), true, id);
+      assert.strictEqual(shouldBundleCliDependency(id, `${root}apps/server/src/bin.ts`), false, id);
+    }
+  });
 });
 
 it.layer(NodeServices.layer)("external package dependency closure", (it) => {
@@ -186,6 +195,19 @@ var x = 1;
 
     assert.deepStrictEqual(result.inlined, ["node-addon-api", "node-gyp-build-optional-packages"]);
     assert.strictEqual(result.regionCount, 2);
+  });
+
+  it("accepts zod 3, which packages built on it bundle, but not the external zod 4", () => {
+    const source =
+      region("../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js") +
+      region("../../node_modules/.pnpm/zod@4.6.7/node_modules/zod/v4/classic/schemas.js");
+    assert.deepStrictEqual(findInlinedExternalPackages(source).inlined, ["zod"]);
+    assert.deepStrictEqual(
+      findInlinedExternalPackages(
+        region("../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js"),
+      ).inlined,
+      [],
+    );
   });
 
   it("reports the packages that were inlined, not just the violations", () => {

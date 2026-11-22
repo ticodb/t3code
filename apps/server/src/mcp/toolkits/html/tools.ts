@@ -1,5 +1,7 @@
+import { A2UI_BASIC_CATALOG_ID, A2UI_VERSION } from "@t3tools/a2ui/protocol";
 import { OrchestratorMcpFailure } from "@t3tools/contracts";
 import {
+  A2UI_RENDER_TOOL_NAME,
   HTML_RENDER_COLUMN_WIDTH,
   HTML_RENDER_LAYOUT_GUIDE,
   HTML_RENDER_MAX_FIT_HEIGHT,
@@ -111,8 +113,48 @@ const HtmlRenderTool = Tool.make(HTML_RENDER_TOOL_NAME, {
   .annotate(Tool.Idempotent, false)
   .annotate(Tool.OpenWorld, true);
 
+// Like html_render, this writes only to the caller's thread.
+const A2uiRenderTool = Tool.make(A2UI_RENDER_TOOL_NAME, {
+  description: [
+    "Show a form or choice inline in this thread, above your final reply. When the user clicks a Button, you get its action as their next message. Use html_render for charts and custom visuals.",
+    `Messages, each with "version":"${A2UI_VERSION}": createSurface {surfaceId, catalogId:"${A2UI_BASIC_CATALOG_ID}"}, updateComponents {surfaceId, components}, optionally updateDataModel {surfaceId, path:"/", value}.`,
+    'components is flat: {id, component, ...props}, one with id "root"; child and children name ids.',
+    "Components: Text(text, variant h1-h5|body), Row, Column, List, Card(child), Tabs(tabs:[{title, child}]), Divider, Image(url), Button(child, variant primary, action), TextField(label, value), CheckBox(label, value), ChoicePicker(label, options:[{label, value}], value), Slider(label, min, max, value), DateTimeInput(label, value).",
+    'Bind a value to data with {"path":"/x"}; inputs write there. Button action: {"event":{"name":"save","context":{"x":{"path":"/x"}}}}.',
+  ].join(" "),
+  parameters: Schema.Struct({
+    messages: Schema.Array(Schema.Unknown).check(Schema.isMinLength(1), Schema.isMaxLength(200)),
+    title: Schema.String.check(
+      Schema.isMinLength(1),
+      Schema.isMaxLength(HTML_RENDER_MAX_TITLE_LENGTH),
+    ),
+  }),
+  success: Schema.Struct({
+    htmlRender: Schema.Struct({
+      attachmentId: Schema.String,
+      title: Schema.String,
+      height: Schema.Number,
+      heights: Schema.optional(Schema.Array(Schema.Tuple([Schema.Int, Schema.Int]))),
+      kind: Schema.Literal("a2ui"),
+    }),
+    message: Schema.String,
+  }),
+  failure: OrchestratorMcpFailure,
+  failureMode: "return",
+  dependencies: [
+    McpInvocationContext.McpInvocationContext,
+    ThreadManagementService.ThreadManagementService,
+    HtmlRender.HtmlRender,
+  ],
+})
+  .annotate(Tool.Title, "Render interface")
+  .annotate(Tool.Readonly, true)
+  .annotate(Tool.Destructive, false)
+  .annotate(Tool.Idempotent, false)
+  .annotate(Tool.OpenWorld, true);
+
 export const HtmlPreviewToolkit = Toolkit.make(HtmlPreviewTool);
 
-export const HtmlRenderToolkit = Toolkit.make(HtmlRenderTool);
+export const HtmlRenderToolkit = Toolkit.make(HtmlRenderTool, A2uiRenderTool);
 
-export const HtmlToolkit = Toolkit.make(HtmlPreviewTool, HtmlRenderTool);
+export const HtmlToolkit = Toolkit.make(HtmlPreviewTool, HtmlRenderTool, A2uiRenderTool);
