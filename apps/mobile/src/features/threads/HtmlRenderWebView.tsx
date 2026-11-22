@@ -1,6 +1,7 @@
 import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 import { useNavigation } from "@react-navigation/native";
-import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { CommandId, MessageId, type EnvironmentId, type ThreadId } from "@t3tools/contracts";
+import { a2uiActionMessage } from "@t3tools/shared/a2ui";
 import {
   htmlRenderFileName,
   htmlRenderFrameHeight,
@@ -20,6 +21,8 @@ import { tryOpenExternalUrl } from "../../lib/openExternalUrl";
 import { useAssetUrlState, useRefreshAssetUrl } from "../../state/assets";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { webViewDecelerationRate } from "../../lib/webViewDecelerationRate";
+import { uuidv4 } from "../../lib/uuid";
+import { enqueueThreadOutboxMessage } from "../../state/thread-outbox";
 
 const ROW_BOTTOM_MARGIN = 8;
 const FULL_SCREEN_GUTTER = 16;
@@ -74,10 +77,25 @@ function readOverflowMessage(data: string): Overflow | null {
 
 const withoutFragment = (url: string) => url.split("#", 1)[0];
 
+/** Where an A2UI page's actions go. WebViews cannot prove a tap, but only its Buttons post them. */
+export interface A2uiActionTarget {
+  readonly environmentId: EnvironmentId;
+  readonly threadId: ThreadId;
+}
+
+function readA2uiAction(data: string, title: string) {
+  try {
+    return a2uiActionMessage(title, JSON.parse(data));
+  } catch {
+    return undefined;
+  }
+}
+
 export function HtmlRenderWebView(props: {
   readonly uri: string;
   readonly title: string;
   readonly nested: boolean;
+  readonly a2ui?: A2uiActionTarget | undefined;
   readonly onLoadError?: () => void;
 }) {
   const theme = useHtmlRenderTheme();
@@ -107,6 +125,27 @@ export function HtmlRenderWebView(props: {
     setGeneration((value) => value + 1);
   };
   const scrollable = !props.nested || overflow.x || overflow.y;
+  const { a2ui } = props;
+  const onMessage = (event: WebViewMessageEvent) => {
+    const data = event.nativeEvent.data;
+    const next = props.nested ? readOverflowMessage(data) : null;
+    if (next !== null) {
+      setOverflow(next);
+      return;
+    }
+    const text = a2ui && readA2uiAction(data, props.title);
+    if (!a2ui || !text) return;
+    void enqueueThreadOutboxMessage({
+      environmentId: a2ui.environmentId,
+      threadId: a2ui.threadId,
+      messageId: MessageId.make(uuidv4()),
+      commandId: CommandId.make(uuidv4()),
+      text,
+      attachments: [],
+      dispatchMode: "queue",
+      createdAt: new Date().toISOString(),
+    });
+  };
   return (
     <View
       style={
@@ -153,15 +192,8 @@ export function HtmlRenderWebView(props: {
         onHttpError={props.onLoadError}
         onContentProcessDidTerminate={restart}
         onRenderProcessGone={restart}
-        {...(props.nested
-          ? {
-              injectedJavaScript: OVERFLOW_SCRIPT,
-              onMessage: (event: WebViewMessageEvent) => {
-                const next = readOverflowMessage(event.nativeEvent.data);
-                if (next !== null) setOverflow(next);
-              },
-            }
-          : {})}
+        {...(props.nested ? { injectedJavaScript: OVERFLOW_SCRIPT } : {})}
+        {...(props.nested || a2ui ? { onMessage } : {})}
       />
       {loaded ? null : (
         <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
@@ -182,6 +214,10 @@ export function ThreadHtmlRender(props: {
   const navigation = useNavigation();
   const { attachmentId, title } = props.render;
   const height = htmlRenderFrameHeight(props.render, props.frameWidth);
+  const a2ui =
+    props.render.kind === "a2ui"
+      ? { environmentId: props.environmentId, threadId: props.threadId }
+      : undefined;
   const fileName = htmlRenderFileName(title);
   const resource = {
     _tag: "attachment" as const,
@@ -220,6 +256,7 @@ export function ThreadHtmlRender(props: {
             uri={uri}
             title={title}
             nested
+            a2ui={a2ui}
             onLoadError={handleLoadError}
           />
         ) : failed || asset._tag === "Failure" ? (
@@ -254,7 +291,8 @@ export function ThreadHtmlRender(props: {
                 name: fileName,
                 mimeType: "text/html",
                 sizeBytes: "0",
-                htmlRender: "1",
+                htmlRender: props.render.kind === "a2ui" ? "a2ui" : "1",
+                title,
               })
             }
           >

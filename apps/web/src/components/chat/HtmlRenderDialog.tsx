@@ -17,6 +17,7 @@ export function HtmlRenderDialog(props: {
   readonly src: string;
   readonly htmlRender: HtmlRenderReference;
   readonly threadRef?: ScopedThreadRef | undefined;
+  readonly onA2uiAction?: ((message: string) => void) | undefined;
   readonly onClose: () => void;
 }) {
   const { title } = props.htmlRender;
@@ -66,6 +67,7 @@ export function HtmlRenderDialog(props: {
                   threadRef={props.threadRef}
                   className="block size-full"
                   onContentHeight={setContentHeight}
+                  onA2uiAction={props.onA2uiAction}
                 />
               </div>
             </div>

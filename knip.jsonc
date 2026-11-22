@@ -157,6 +157,11 @@
       // These workspace packages are private to this monorepo.
       "includeEntryExports": true,
     },
+    "packages/a2ui": {
+      "includeEntryExports": true,
+      // Bundled into vendor/renderer.js by scripts/renderer-bundle.ts.
+      "entry": ["src/renderer.browser.ts"],
+    },
     "packages/effect-acp": {
       "includeEntryExports": true,
       "entry": ["test/fixtures/*.ts"],

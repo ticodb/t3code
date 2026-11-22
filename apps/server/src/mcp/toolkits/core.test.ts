@@ -75,6 +75,7 @@ const declaredFailure = (result: McpSchema.CallToolResult) => {
   const text = result.content[0];
   return result.isError === true && text?.type === "text" ? JSON.parse(text.text) : undefined;
 };
+import { A2UI_BASIC_CATALOG_ID } from "@t3tools/a2ui/protocol";
 import { htmlRenderFromToolItem } from "@t3tools/shared/toolOutput";
 
 const decodeMcpAttachmentInput = Schema.decodeUnknownEffect(McpAttachmentInput);
@@ -381,6 +382,41 @@ it.effect("returns an HTML render reference that Codex and Claude tool rows both
       expect(yield* byPath(name, scope), name).toContain("only full-access threads");
       expect(yield* byPath(name, fullAccess), name).toContain("not a readable HTML document");
     }
+    const renderSurface = (component: string) =>
+      server
+        .callTool({
+          name: "a2ui_render",
+          arguments: {
+            title: "Deploy",
+            messages: [
+              {
+                version: "v0.9",
+                createSurface: { surfaceId: "main", catalogId: A2UI_BASIC_CATALOG_ID },
+              },
+              {
+                version: "v0.9",
+                updateComponents: {
+                  surfaceId: "main",
+                  components: [{ id: "root", component, text: "Ship it?" }],
+                },
+              },
+            ],
+          },
+        })
+        .pipe(
+          Effect.provideService(McpInvocationContext.McpInvocationContext, scope),
+          Effect.provideService(McpSchema.McpServerClient, client),
+        );
+    const surface = yield* renderSurface("Text");
+    expect(
+      htmlRenderFromToolItem({
+        toolName: "t3-code.a2ui_render",
+        output: surface.structuredContent,
+      }),
+    ).toMatchObject({ title: "Deploy", kind: "a2ui" });
+    const invalid = yield* renderSurface("Blink");
+    expect(invalid.isError).toBe(true);
+    expect(JSON.stringify(invalid.content)).toContain("Unknown component type 'Blink'");
   }).pipe(
     Effect.provide(
       McpHttpServer.layerHtmlToolkit.pipe(

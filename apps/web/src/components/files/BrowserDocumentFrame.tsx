@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
+import { a2uiActionMessage } from "@t3tools/shared/a2ui";
 import {
   type KeybindingCommand,
   type KeybindingShortcut,
@@ -183,6 +184,8 @@ export function HtmlRenderDocument(props: {
   readonly onContentHeight?: (height: number) => void;
   /** Reports fullscreen changes so virtualized rows can stay mounted. */
   readonly onFullscreenChange?: ((fullscreen: boolean) => void) | undefined;
+  /** Only for A2UI pages, which T3 generated, so their actions may message the thread. */
+  readonly onA2uiAction?: ((message: string) => void) | undefined;
 }) {
   const theme = useHtmlRenderTheme();
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -302,7 +305,10 @@ export function HtmlRenderDocument(props: {
     const imageRequest = readHtmlRenderImageRequest(event.data);
     if (imageRequest !== undefined) {
       setExpandedImage({ images: [...imageRequest.images], index: imageRequest.index });
+      return;
     }
+    const action = props.onA2uiAction && a2uiActionMessage(props.title, event.data);
+    if (action) props.onA2uiAction?.(action);
   });
   // Attach at commit because a fast page may post its initial height before passive effects run.
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- attaches a window message listener for the iframe at commit, before its first height post

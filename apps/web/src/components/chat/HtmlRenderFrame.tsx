@@ -25,6 +25,7 @@ export function HtmlRenderFrame(props: {
   readonly htmlRender: HtmlRenderReference;
   readonly threadRef: ScopedThreadRef | undefined;
   readonly onFullscreenChange?: (fullscreen: boolean) => void;
+  readonly onSendMessage?: ((text: string) => Promise<void>) | undefined;
 }) {
   const { attachmentId, title } = props.htmlRender;
   const [width, setWidth] = useState(HTML_RENDER_COLUMN_WIDTH);
@@ -55,7 +56,18 @@ export function HtmlRenderFrame(props: {
   const failed = loaded === null && assetUrl._tag === "Failure";
   const refresh = useAssetUrlRefresh(props.environmentId, resource);
   const [expandedSrc, setExpandedSrc] = useState<string | null>(null);
-  const { onFullscreenChange } = props;
+  const { onFullscreenChange, onSendMessage } = props;
+  const onA2uiAction =
+    props.htmlRender.kind === "a2ui" && onSendMessage !== undefined
+      ? (message: string) =>
+          void onSendMessage(message).catch((cause: unknown) =>
+            toastManager.add({
+              type: "error",
+              title: "Could not send",
+              description: cause instanceof Error ? cause.message : undefined,
+            }),
+          )
+      : undefined;
   // Tied to the viewer's lifetime: unmounting while expanded must still release
   // the timeline's follow pin, which a close handler alone never reaches.
   const expanded = expandedSrc !== null;
@@ -77,6 +89,7 @@ export function HtmlRenderFrame(props: {
             className="block size-full"
             onContentHeight={setContentHeight}
             onFullscreenChange={onFullscreenChange}
+            onA2uiAction={onA2uiAction}
           />
           <div className="absolute end-2 top-2 flex gap-1 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover/html-render:opacity-100 pointer-coarse:opacity-100">
             <Tooltip>
@@ -112,6 +125,7 @@ export function HtmlRenderFrame(props: {
               src={expandedSrc}
               htmlRender={props.htmlRender}
               threadRef={props.threadRef}
+              onA2uiAction={onA2uiAction}
               onClose={() => setExpandedSrc(null)}
             />
           ) : null}

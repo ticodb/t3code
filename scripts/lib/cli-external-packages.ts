@@ -1,3 +1,7 @@
+// @effect-diagnostics nodeBuiltinImport:off - the pack config calls this synchronously.
+import * as NodeFS from "node:fs";
+import * as NodePath from "node:path";
+
 /** Keep bundler externals and staged runtime dependency roots aligned. */
 // Filesystem-loaded externals need dependencies outside the bundle.
 const CLI_RUNTIME_EXTERNAL_PREFIXES = [
@@ -42,13 +46,34 @@ export function isRuntimeExternalCliDependency(id: string): boolean {
 }
 
 /** Use neverBundle: false from alwaysBundle means no opinion and leaves transitive packages bundled. */
-export function isExternalCliDependency(id: string): boolean {
+export function isExternalCliDependency(id: string, importer?: string): boolean {
+  // The external zod is the server's zod 4, so a package built on zod 3 (@a2ui/web_core) bundles its own.
+  if ((id === "zod" || id.startsWith("zod/")) && importer !== undefined) {
+    if (resolvedZodMajor(importer) === "3") return false;
+  }
   return isRuntimeExternalCliDependency(id);
 }
 
-export function shouldBundleCliDependency(id: string): boolean {
+export function shouldBundleCliDependency(id: string, importer?: string): boolean {
   if (id.startsWith("node:")) return false;
-  return !isExternalCliDependency(id);
+  return !isExternalCliDependency(id, importer);
+}
+
+/** The zod major version a module in the pnpm store resolves, from its package's sibling links. */
+function resolvedZodMajor(importer: string): string | undefined {
+  const packageLinks = /^(.*[\\/]node_modules[\\/]\.pnpm[\\/][^\\/]+[\\/]node_modules)[\\/]/.exec(
+    importer,
+  )?.[1];
+  if (packageLinks === undefined) return undefined;
+  try {
+    const manifest = NodeFS.readFileSync(
+      NodePath.join(packageLinks, "zod", "package.json"),
+      "utf8",
+    );
+    return /"version":\s*"(\d+)\./.exec(manifest)?.[1];
+  } catch {
+    return undefined;
+  }
 }
 
 export function selectCliRuntimeExternalDependencies(
@@ -80,6 +105,8 @@ export function findInlinedExternalPackages(source: string): {
       const name = candidate[1];
       if (name === undefined || name === ".pnpm") continue;
       inlinedPackages.add(name);
+      // zod 3 is bundled on purpose for the packages that need it; see isExternalCliDependency.
+      if (name === "zod" && /[\\/]\.pnpm[\\/]zod@3\./.test(regionPath)) continue;
       if (isExternalCliDependency(name)) inlined.add(name);
     }
   }

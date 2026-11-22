@@ -1,7 +1,7 @@
 // @effect-diagnostics nodeBuiltinImport:off -- Pure synchronous hashing keeps page matching bounded without a runtime dependency.
 import * as NodeCrypto from "node:crypto";
 import type { ThreadId } from "@t3tools/contracts";
-import type { HtmlRenderReference } from "@t3tools/shared/htmlRender";
+import { A2UI_RENDER_HEIGHT, type HtmlRenderReference } from "@t3tools/shared/htmlRender";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -59,9 +59,21 @@ interface PageInput {
   readonly path?: unknown;
   readonly title?: unknown;
   readonly height?: unknown;
+  readonly messages?: unknown;
 }
 
-const matchingPageIndex = (kept: ReadonlyArray<KeptHtmlRender>, input: PageInput): number => {
+// a2ui_render records its messages as JSON in place of the page, under the fixed frame height.
+const pageInput = (input: PageInput): PageInput =>
+  input.messages === undefined || input.messages === null
+    ? input
+    : {
+        title: input.title,
+        height: A2UI_RENDER_HEIGHT,
+        html: typeof input.messages === "string" ? input.messages : JSON.stringify(input.messages),
+      };
+
+const matchingPageIndex = (kept: ReadonlyArray<KeptHtmlRender>, call: PageInput): number => {
+  const input = pageInput(call);
   const height =
     typeof input.height === "string" && input.height.trim() !== ""
       ? Number(input.height)

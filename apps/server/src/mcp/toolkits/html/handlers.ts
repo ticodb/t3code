@@ -1,4 +1,5 @@
 import { OrchestratorMcpFailure } from "@t3tools/contracts";
+import { A2UI_RENDER_HEIGHT } from "@t3tools/shared/htmlRender";
 import * as Effect from "effect/Effect";
 
 import * as HtmlRender from "../../../htmlRender/HtmlRender.ts";
@@ -83,6 +84,40 @@ const handlers = {
       };
     }),
   ),
+  a2ui_render: McpToolAccess.actsAsCaller((input) =>
+    Effect.gen(function* () {
+      const scope = yield* McpInvocationContext.McpInvocationContext;
+      const { thread } = yield* McpInvocationContext.requireThreadScope(scope, "a2ui_render");
+      // The renderer bundle and validator are large; load them on first use, not at server start.
+      const { a2uiPageHtml, validateA2uiMessages } = yield* Effect.promise(
+        () => import("@t3tools/a2ui"),
+      );
+      const problems = validateA2uiMessages(input.messages);
+      if (problems.length > 0) {
+        return yield* new OrchestratorMcpFailure({
+          code: "invalid_request",
+          message: `Fix these A2UI messages and call again:\n${problems.join("\n")}`,
+        });
+      }
+      const htmlRender = yield* HtmlRender.HtmlRender;
+      const reference = yield* htmlRender
+        .publish({
+          html: a2uiPageHtml(input.messages),
+          threadId: thread.threadId,
+          title: input.title,
+          height: A2UI_RENDER_HEIGHT,
+          kind: "a2ui",
+          // @effect-diagnostics-next-line globalJsonInEffect:off -- decoded from JSON, so it serializes.
+          recordedHtml: JSON.stringify(input.messages),
+        })
+        .pipe(Effect.mapError(toFailure));
+      return {
+        htmlRender: { ...reference, kind: "a2ui" as const },
+        message:
+          "Shown to the reader above your reply. Don't describe it. A button's action arrives as the user's next message.",
+      };
+    }),
+  ),
 } satisfies McpToolAccess.Handlers<typeof HtmlToolkit.tools>;
 
 export const layerPreview = McpToolAccess.toLayer(HtmlPreviewToolkit, {
@@ -91,4 +126,5 @@ export const layerPreview = McpToolAccess.toLayer(HtmlPreviewToolkit, {
 
 export const layerRender = McpToolAccess.toLayer(HtmlRenderToolkit, {
   html_render: handlers.html_render,
+  a2ui_render: handlers.a2ui_render,
 });

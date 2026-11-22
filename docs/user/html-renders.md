@@ -10,6 +10,12 @@ Before publishing, agents check their work with screenshots from a small headles
 
 Previews can load public resources such as CDN scripts, but nothing on your local network. The machine running the environment looks up each name, and previews block names that resolve to private or reserved addresses. Clash or Mihomo in fake-IP DNS mode can return these addresses, so external resources can fail there. The preview's console messages can identify affected hostnames. Inline the resource, add its host to `fake-ip-filter`, or switch that machine's proxy DNS to `redir-host`.
 
+## Forms and choices
+
+When an agent needs you to pick options or fill in a few values, it can show a small form in the thread instead of a page. Ask for one ("give me something I can click through"), or an agent may offer one for a choice with several parts. Forms use [A2UI](https://a2ui.org), an open format for agent interfaces, and work with every provider, on web, desktop, and mobile.
+
+Pressing a form's button sends what you entered to the agent as your next message, so it shows in the thread like anything else you send. If the agent is busy, it is queued. Forms follow your theme. Pages that were shared through a guest link can be viewed, but their buttons do nothing.
+
 ## MCP apps
 
 Some MCP servers return an interactive app with their tool results, following the [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) standard. When an agent calls one of those tools, the app appears in the thread below the tool call, on web, desktop, and mobile. The tool call keeps its input and result, so you can still read them when an app shows nothing. Codex and Claude support this today, for any MCP server you have configured for them. Claude needs Claude Code 2.1.301 or newer; older versions and other providers show these calls as ordinary tool calls.

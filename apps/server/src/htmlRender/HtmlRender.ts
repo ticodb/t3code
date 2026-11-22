@@ -134,6 +134,15 @@ export type HtmlRenderPrepareError =
 
 export type HtmlRenderSource = { readonly html: string } | { readonly path: string };
 
+export interface PublishOptions {
+  readonly threadId: ThreadId;
+  readonly title: string;
+  readonly height: number;
+  readonly kind?: HtmlRenderReference["kind"];
+  /** What a provider's call carried in place of the page, for recovering a lost result. */
+  readonly recordedHtml?: string;
+}
+
 export interface HtmlPreview {
   readonly png: string;
   readonly width: number;
@@ -148,11 +157,7 @@ export class HtmlRender extends Context.Service<
   {
     readonly prepare: (html: string) => Effect.Effect<string, HtmlRenderPrepareError>;
     readonly publish: (
-      input: HtmlRenderSource & {
-        readonly threadId: ThreadId;
-        readonly title: string;
-        readonly height: number;
-      },
+      input: HtmlRenderSource & PublishOptions,
     ) => Effect.Effect<
       HtmlRenderReference,
       | HtmlRenderFileError
@@ -499,11 +504,7 @@ const make = Effect.gen(function* () {
   });
 
   const publish = Effect.fn("HtmlRender.publish")(function* (
-    input: HtmlRenderSource & {
-      readonly threadId: ThreadId;
-      readonly title: string;
-      readonly height: number;
-    },
+    input: HtmlRenderSource & PublishOptions,
   ) {
     const source = yield* readSource(input);
     const html = yield* prepare(source);
@@ -523,6 +524,7 @@ const make = Effect.gen(function* () {
       attachmentId,
       title: input.title.trim().slice(0, HTML_RENDER_MAX_TITLE_LENGTH) || "HTML",
       height: clampHtmlRenderHeight(input.height),
+      ...(input.kind === undefined ? {} : { kind: input.kind }),
     };
     return yield* fileSystem.writeFileString(filePath, html).pipe(
       Effect.mapError((cause) => new HtmlRenderStoreError({ cause })),
@@ -537,7 +539,7 @@ const make = Effect.gen(function* () {
           .recordHtmlRender(
             input.threadId,
             {
-              html: source,
+              html: input.recordedHtml ?? source,
               path: "path" in input ? input.path : undefined,
               title: input.title,
               height: input.height,

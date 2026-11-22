@@ -5,6 +5,7 @@ import {
 import * as Predicate from "effect/Predicate";
 
 import {
+  A2UI_RENDER_TOOL_NAME,
   HTML_RENDER_TOOL_NAME,
   readHtmlRenderReference,
   type HtmlRenderReference,
@@ -199,6 +200,12 @@ export function compactDynamicToolOutput(value: unknown): CompactToolOutput | un
   return Object.keys(output).length === 0 ? undefined : output;
 }
 
+/** Whether a T3 tool's result carries an html render reference. */
+export function isHtmlRenderToolName(toolName: string | null | undefined): boolean {
+  const tool = resolveT3McpToolId(toolName);
+  return tool === HTML_RENDER_TOOL_NAME || tool === A2UI_RENDER_TOOL_NAME;
+}
+
 // OpenCode 2 Code Mode reports a script's nested T3 tool calls as one item with the script's result.
 const OPENCODE_CODE_MODE_TOOL_NAME = "execute";
 
@@ -206,10 +213,7 @@ export function htmlRenderFromToolItem(item: {
   readonly toolName: string | null | undefined;
   readonly output?: unknown;
 }): HtmlRenderReference | undefined {
-  if (
-    item.toolName !== OPENCODE_CODE_MODE_TOOL_NAME &&
-    resolveT3McpToolId(item.toolName) !== HTML_RENDER_TOOL_NAME
-  ) {
+  if (item.toolName !== OPENCODE_CODE_MODE_TOOL_NAME && !isHtmlRenderToolName(item.toolName)) {
     return undefined;
   }
   const output = compactDynamicToolOutput(item.output);

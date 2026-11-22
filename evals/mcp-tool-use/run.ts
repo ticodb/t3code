@@ -1145,6 +1145,8 @@ const DEFAULT_THREAD = {
 };
 const HTML_RENDERED =
   "Shown to the reader above your reply. Don't mention or describe the page; reply with only what it doesn't already say.";
+const A2UI_RENDERED =
+  "Shown to the reader above your reply. Don't describe it. A button's action arrives as the user's next message.";
 
 const PULL_REQUEST_URL = /\/pull\/\d+\/?$/;
 
@@ -1342,6 +1344,16 @@ export const t3Default = (
       return {
         htmlRender: { attachmentId: "att-1", title: input.title ?? "Visual", height: 560 },
         message: HTML_RENDERED,
+      };
+    case "a2ui_render":
+      return {
+        htmlRender: {
+          attachmentId: "att-1",
+          title: input.title ?? "Interface",
+          height: 240,
+          kind: "a2ui",
+        },
+        message: A2UI_RENDERED,
       };
     case "preview_status":
       return {
